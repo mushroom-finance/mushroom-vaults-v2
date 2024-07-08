@@ -3,7 +3,6 @@ pragma solidity =0.8.23;
 
 import { Address } from "@openzeppelin/contracts/utils/Address.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-import { SafeMath } from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -15,21 +14,18 @@ import { BaseStrategy } from "src/BaseStrategy.sol";
 contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
-    using SafeMath for uint256;
 
-    bool public checkLiqGauge = true;
+    IWETH public constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+    ILido public constant STETH = ILido(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
+    IStableSwapSTETH public constant StableSwapSTETH = IStableSwapSTETH(0xDC24316b9AE028F1497c275EB9192a3Ea0f67022);
 
-    IWETH public constant weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    ILido public constant stETH = ILido(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
-    IStableSwapSTETH public constant stableSwapSTETH = IStableSwapSTETH(0xDC24316b9AE028F1497c275EB9192a3Ea0f67022);
-
-    address private referral = address(0);
+    address private referral;
     uint256 public maxSingleTrade;
     uint256 public constant DENOMINATOR = 10_000;
     uint256 public slippageProtectionOut; // = 50; //out of 10000. 50 = 0.5%
 
-    bool public reportLoss = false;
-    bool public dontInvest = false;
+    bool public reportLoss;
+    bool public dontInvest;
 
     uint256 public peg = 100; // 100 = 1%
 
@@ -41,7 +37,7 @@ contract Strategy is BaseStrategy {
         maxReportDelay = 43_200;
         healthCheck = 0xDDCea799fF1699e98EDF118e0629A974Df7DF012; //hardcode healthcheck
 
-        stETH.approve(address(stableSwapSTETH), type(uint256).max);
+        STETH.approve(address(StableSwapSTETH), type(uint256).max);
 
         maxSingleTrade = 1000 * 1e18;
         slippageProtectionOut = 500;
@@ -82,7 +78,7 @@ contract Strategy is BaseStrategy {
 
     // should never have stuck eth but just in case
     function rescueStuckEth() external onlyEmergencyAuthorized {
-        weth.deposit{ value: address(this).balance }();
+        WETH.deposit{ value: address(this).balance }();
     }
 
     function name() external pure override returns (string memory) {
@@ -95,11 +91,11 @@ contract Strategy is BaseStrategy {
     // This may sound scary but it is the equivalent of using virtual price in a curve lp. As we have seen from many
     // exploits, virtual pricing is safer than touch pricing.
     function estimatedTotalAssets() public view override returns (uint256) {
-        return stethBalance().mul(DENOMINATOR.sub(peg)).div(DENOMINATOR).add(wantBalance());
+        return stethBalance() * (DENOMINATOR - peg) / DENOMINATOR + wantBalance();
     }
 
     function estimatedPotentialTotalAssets() public view returns (uint256) {
-        return stethBalance().add(wantBalance());
+        return stethBalance() + wantBalance();
     }
 
     function wantBalance() public view returns (uint256) {
@@ -107,7 +103,7 @@ contract Strategy is BaseStrategy {
     }
 
     function stethBalance() public view returns (uint256) {
-        return stETH.balanceOf(address(this));
+        return STETH.balanceOf(address(this));
     }
 
     function prepareReturn(uint256 _debtOutstanding)
@@ -121,16 +117,16 @@ contract Strategy is BaseStrategy {
         uint256 debt = vault.strategies(address(this)).totalDebt;
 
         if (totalAssets >= debt) {
-            _profit = totalAssets.sub(debt);
+            _profit = totalAssets - debt;
 
-            uint256 toWithdraw = _profit.add(_debtOutstanding);
+            uint256 toWithdraw = _profit + _debtOutstanding;
 
             if (toWithdraw > wantBal) {
-                uint256 willWithdraw = Math.min(maxSingleTrade, toWithdraw);
+                uint256 willWithdraw = Math.min(maxSingleTrade, toWithdraw - wantBal);
                 uint256 withdrawn = _divest(willWithdraw); //we step our withdrawals. adjust max single trade to
                     // withdraw more
                 if (withdrawn < willWithdraw) {
-                    _loss = willWithdraw.sub(withdrawn);
+                    _loss = willWithdraw - withdrawn;
                 }
             }
             wantBal = wantBalance();
@@ -148,13 +144,13 @@ contract Strategy is BaseStrategy {
             if (wantBal < _profit) {
                 _profit = wantBal;
             } else if (wantBal < toWithdraw) {
-                _debtPayment = wantBal.sub(_profit);
+                _debtPayment = wantBal - _profit;
             } else {
                 _debtPayment = _debtOutstanding;
             }
         } else {
             if (reportLoss) {
-                _loss = debt.sub(totalAssets);
+                _loss = debt - totalAssets;
             }
         }
     }
@@ -183,28 +179,28 @@ contract Strategy is BaseStrategy {
         _amount = Math.min(maxSingleTrade, _amount);
         uint256 before = stethBalance();
 
-        weth.withdraw(_amount);
+        WETH.withdraw(_amount);
 
         //test if we should buy instead of mint
-        uint256 out = stableSwapSTETH.get_dy(WETH_ID, STETH_ID, _amount);
+        uint256 out = StableSwapSTETH.get_dy(WETH_ID, STETH_ID, _amount);
         if (out < _amount) {
-            stETH.submit{ value: _amount }(referral);
+            STETH.submit{ value: _amount }(referral);
         } else {
-            stableSwapSTETH.exchange{ value: _amount }(WETH_ID, STETH_ID, _amount, _amount);
+            StableSwapSTETH.exchange{ value: _amount }(WETH_ID, STETH_ID, _amount, _amount);
         }
 
-        return stethBalance().sub(before);
+        return stethBalance() - before;
     }
 
     function _divest(uint256 _amount) internal returns (uint256) {
         uint256 before = wantBalance();
 
-        uint256 slippageAllowance = _amount.mul(DENOMINATOR.sub(slippageProtectionOut)).div(DENOMINATOR);
-        stableSwapSTETH.exchange(STETH_ID, WETH_ID, _amount, slippageAllowance);
+        uint256 slippageAllowance = _amount * (DENOMINATOR - slippageProtectionOut) / DENOMINATOR;
+        StableSwapSTETH.exchange(STETH_ID, WETH_ID, _amount, slippageAllowance);
 
-        weth.deposit{ value: address(this).balance }();
+        WETH.deposit{ value: address(this).balance }();
 
-        return wantBalance().sub(before);
+        return wantBalance() - before;
     }
 
     // we attempt to withdraw the full amount and let the user decide if they take the loss or not
@@ -215,14 +211,14 @@ contract Strategy is BaseStrategy {
     {
         uint256 wantBal = wantBalance();
         if (wantBal < _amountNeeded) {
-            uint256 toWithdraw = _amountNeeded.sub(wantBal);
+            uint256 toWithdraw = _amountNeeded - wantBal;
             uint256 withdrawn = _divest(toWithdraw);
             if (withdrawn < toWithdraw) {
-                _loss = toWithdraw.sub(withdrawn);
+                _loss = toWithdraw - withdrawn;
             }
         }
 
-        _liquidatedAmount = _amountNeeded.sub(_loss);
+        _liquidatedAmount = _amountNeeded - _loss;
     }
 
     // NOTE: Can override `tendTrigger` and `harvestTrigger` if necessary
@@ -230,7 +226,7 @@ contract Strategy is BaseStrategy {
     function prepareMigration(address _newStrategy) internal override {
         uint256 stethBal = stethBalance();
         if (stethBal > 0) {
-            stETH.transfer(_newStrategy, stethBal);
+            SafeERC20.safeTransfer(STETH, _newStrategy, stethBal);
         }
     }
 

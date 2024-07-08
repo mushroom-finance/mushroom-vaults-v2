@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.23;
 
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -189,7 +190,7 @@ interface IBaseFee {
  *  accurate picture of the Strategy's performance. See  `vault.report()`,
  *  `harvest()`, and `harvestTrigger()` for further details.
  */
-abstract contract BaseStrategy {
+abstract contract BaseStrategy is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     string public metadataURI;
@@ -445,7 +446,7 @@ abstract contract BaseStrategy {
      *  This may only be called by the strategist.
      * @param _rewards The address to use for pulling rewards.
      */
-    function setRewards(address _rewards) external onlyRewarder {
+    function setRewards(address _rewards) external nonReentrant onlyRewarder {
         require(_rewards != address(0));
         vault.approve(rewards, 0);
         rewards = _rewards;
@@ -792,7 +793,7 @@ abstract contract BaseStrategy {
      *  called to report to the Vault on the Strategy's position, especially if
      *  any losses have occurred.
      */
-    function harvest() external onlyKeepers {
+    function harvest() external nonReentrant onlyKeepers {
         uint256 profit = 0;
         uint256 loss = 0;
         uint256 debtOutstanding = vault.debtOutstanding();
@@ -829,9 +830,6 @@ abstract contract BaseStrategy {
             require(
                 HealthCheck(healthCheck).check(profit, loss, debtPayment, debtOutstanding, totalDebt), "!healthcheck"
             );
-        } else {
-            emit SetDoHealthCheck(true);
-            doHealthCheck = true;
         }
 
         emit Harvested(profit, loss, debtPayment, debtOutstanding);
@@ -891,7 +889,7 @@ abstract contract BaseStrategy {
      * @dev
      *  See `vault.setEmergencyShutdown()` and `harvest()` for further details.
      */
-    function setEmergencyExit() external onlyEmergencyAuthorized {
+    function setEmergencyExit() external nonReentrant onlyEmergencyAuthorized {
         emergencyExit = true;
         if (vault.strategies(address(this)).debtRatio != 0) {
             vault.revokeStrategy();

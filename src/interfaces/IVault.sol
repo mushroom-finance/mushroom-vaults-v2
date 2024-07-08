@@ -3,6 +3,9 @@ pragma solidity =0.8.23;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+// Constants
+uint256 constant MAXIMUM_STRATEGIES = 20;
+
 struct StrategyParams {
     uint256 performanceFee;
     uint256 activation;
@@ -16,13 +19,51 @@ struct StrategyParams {
 }
 
 interface IVault is IERC20 {
+    // ERC20
     function name() external view returns (string calldata);
-
     function symbol() external view returns (string calldata);
-
     function decimals() external view returns (uint256);
 
+    // Vault
     function apiVersion() external pure returns (string memory);
+    function activation() external view returns (uint256);
+    function token() external view returns (address);
+    function depositLimit() external view returns (uint256);
+    function availableDepositLimit() external view returns (uint256);
+    function totalIdle() external view returns (uint256);
+    function totalDebt() external view returns (uint256);
+    function totalAssets() external view returns (uint256);
+    function pricePerShare() external view returns (uint256);
+    function maxAvailableShares() external view returns (uint256);
+    function managementFee() external view returns (uint256);
+    function setManagementFee(uint256 fee) external;
+    function performanceFee() external view returns (uint256);
+    function setPerformanceFee(uint256 fee) external;
+    function emergencyShutdown() external view returns (bool);
+    function setEmergencyShutdown(bool active) external;
+
+    // Credit & Debt
+    function debtRatio() external view returns (uint256);
+    function lockedProfitDegradation() external view returns (uint256);
+    function lockedProfit() external view returns (uint256);
+
+    // Strategy
+    function withdrawalQueue(uint256 index) external view returns (address);
+    function strategies(address _strategy) external view returns (StrategyParams memory);
+    /**
+     * View how much the Vault would like to pull back from the Strategy,
+     * based on its present performance (since its last report). Can be used to
+     * determine expectedReturn in your Strategy.
+     */
+    function debtOutstanding() external view returns (uint256);
+    function debtOutstanding(address _strategy) external view returns (uint256);
+    /**
+     * View how much the Vault expect this Strategy to return at the current
+     * block, based on its present performance (since its last report). Can be
+     * used to determine expectedReturn in your Strategy.
+     */
+    function expectedReturn() external view returns (uint256);
+    function expectedReturn(address _strategy) external view returns (uint256);
 
     function permit(
         address owner,
@@ -70,40 +111,12 @@ interface IVault is IERC20 {
 
     function withdraw(uint256 maxShares, address recipient) external returns (uint256);
 
-    function token() external view returns (address);
-
-    function strategies(address _strategy) external view returns (StrategyParams memory);
-
-    function pricePerShare() external view returns (uint256);
-
-    function totalAssets() external view returns (uint256);
-
-    function depositLimit() external view returns (uint256);
-
-    function maxAvailableShares() external view returns (uint256);
-
     /**
      * View how much the Vault would increase this Strategy's borrow limit,
      * based on its present performance (since its last report). Can be used to
      * determine expectedReturn in your Strategy.
      */
     function creditAvailable() external view returns (uint256);
-
-    /**
-     * View how much the Vault would like to pull back from the Strategy,
-     * based on its present performance (since its last report). Can be used to
-     * determine expectedReturn in your Strategy.
-     */
-    function debtOutstanding() external view returns (uint256);
-
-    function debtOutstanding(address _strategy) external view returns (uint256);
-
-    /**
-     * View how much the Vault expect this Strategy to return at the current
-     * block, based on its present performance (since its last report). Can be
-     * used to determine expectedReturn in your Strategy.
-     */
-    function expectedReturn() external view returns (uint256);
 
     /**
      * This is the main contact point where the Strategy interacts with the
@@ -129,9 +142,11 @@ interface IVault is IERC20 {
 
     function migrateStrategy(address oldVersion, address newVersion) external;
 
-    function setEmergencyShutdown(bool active) external;
+    function updateStrategyPerformanceFee(address strategy, uint256 performanceFee) external;
 
-    function setManagementFee(uint256 fee) external;
+    function updateStrategyMinDebtPerHarvest(address strategy, uint256 minDebtPerHarvest) external;
+
+    function updateStrategyMaxDebtPerHarvest(address strategy, uint256 maxDebtPerHarvest) external;
 
     function updateStrategyDebtRatio(address strategy, uint256 debtRatio) external;
 
@@ -157,4 +172,6 @@ interface IVault is IERC20 {
      * is subject to guardian defined by the Vault.
      */
     function guardian() external view returns (address);
+
+    function rewards() external view returns (address);
 }
