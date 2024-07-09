@@ -363,7 +363,7 @@ abstract contract BaseStrategy is ReentrancyGuard {
     }
 
     constructor(address _vault) {
-        _initialize(_vault, msg.sender, msg.sender, msg.sender);
+        initialize(_vault, msg.sender, msg.sender, msg.sender);
     }
 
     /**
@@ -378,7 +378,7 @@ abstract contract BaseStrategy is ReentrancyGuard {
      * @param _keeper The address of the _keeper. _keeper
      * can harvest and tend a strategy.
      */
-    function _initialize(address _vault, address _strategist, address _rewards, address _keeper) internal {
+    function initialize(address _vault, address _strategist, address _rewards, address _keeper) public {
         require(address(want) == address(0), "Strategy already initialized");
 
         vault = VaultAPI(_vault);
@@ -955,10 +955,6 @@ abstract contract BaseStrategyInitializable is BaseStrategy {
 
     constructor(address _vault) BaseStrategy(_vault) { }
 
-    function initialize(address _vault, address _strategist, address _rewards, address _keeper) external virtual {
-        _initialize(_vault, _strategist, _rewards, _keeper);
-    }
-
     function clone(address _vault) external returns (address) {
         return clone(_vault, msg.sender, msg.sender, msg.sender);
     }
@@ -985,7 +981,7 @@ abstract contract BaseStrategyInitializable is BaseStrategy {
             newStrategy := create(0, clone_code, 0x37)
         }
 
-        BaseStrategyInitializable(newStrategy).initialize(_vault, _strategist, _rewards, _keeper);
+        BaseStrategy(newStrategy).initialize(_vault, _strategist, _rewards, _keeper);
 
         emit Cloned(newStrategy);
     }

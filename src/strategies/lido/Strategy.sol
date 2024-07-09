@@ -15,6 +15,13 @@ contract Strategy is BaseStrategy {
     using SafeERC20 for IERC20;
     using Address for address;
 
+    event UpdateReferral(address referral);
+    event UpdateMaxSingleTrade(uint256 maxSingleTrade);
+    event UpdatePeg(uint256 peg);
+    event UpdateReportLoss(bool reportLoss);
+    event UpdateDontInvest(bool dontInvest);
+    event UpdateSlippageProtectionOut(uint256 slippageProtectionOut);
+
     IWETH public constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
     ILido public constant STETH = ILido(0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84);
     IStableSwapSTETH public constant StableSwapSTETH = IStableSwapSTETH(0xDC24316b9AE028F1497c275EB9192a3Ea0f67022);
@@ -48,28 +55,34 @@ contract Strategy is BaseStrategy {
 
     function updateReferral(address _referral) external onlyEmergencyAuthorized {
         referral = _referral;
+        emit UpdateReferral(referral);
     }
 
     function updateMaxSingleTrade(uint256 _maxSingleTrade) external onlyVaultManagers {
         maxSingleTrade = _maxSingleTrade;
+        emit UpdateMaxSingleTrade(maxSingleTrade);
     }
 
     function updatePeg(uint256 _peg) external onlyVaultManagers {
         require(_peg <= 1000); //limit peg to max 10%
         peg = _peg;
+        emit UpdatePeg(peg);
     }
 
     function updateReportLoss(bool _reportLoss) external onlyVaultManagers {
         reportLoss = _reportLoss;
+        emit UpdateReportLoss(reportLoss);
     }
 
     function updateDontInvest(bool _dontInvest) external onlyVaultManagers {
         dontInvest = _dontInvest;
+        emit UpdateDontInvest(dontInvest);
     }
 
     function updateSlippageProtectionOut(uint256 _slippageProtectionOut) external onlyVaultManagers {
         require(_slippageProtectionOut <= 10_000);
         slippageProtectionOut = _slippageProtectionOut;
+        emit UpdateSlippageProtectionOut(slippageProtectionOut);
     }
 
     function invest(uint256 _amount) external onlyEmergencyAuthorized {
