@@ -5,13 +5,13 @@ pragma experimental ABIEncoderV2;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-import { BaseStrategyInitializable, StrategyParams, VaultAPI } from "src/BaseStrategy.sol";
+import { BaseStrategyFactory, StrategyParams, VaultAPI } from "src/BaseStrategy.sol";
 
 /*
  * This Strategy serves as both a mock Strategy for testing, and an example
  * for integrators on how to use BaseStrategy
  */
-contract TestStrategy is BaseStrategyInitializable {
+contract TestStrategy is BaseStrategyFactory {
     bool public doReentrancy;
     bool public delegateEverything;
 
@@ -20,7 +20,7 @@ contract TestStrategy is BaseStrategyInitializable {
     // to test `BaseStrategy.protectedTokens()`
     address public constant protectedToken = address(0xbad);
 
-    constructor(address _vault) BaseStrategyInitializable(_vault) { }
+    constructor(address _vault) BaseStrategyFactory(_vault) { }
 
     function name() external pure override returns (string memory) {
         return string(abi.encodePacked("TestStrategy ", apiVersion()));

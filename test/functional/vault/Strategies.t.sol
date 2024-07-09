@@ -7,7 +7,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 import { IWETH } from "src/interfaces/IWETH.sol";
 import { IRegistry } from "src/interfaces/IRegistry.sol";
 import { IVault, StrategyParams } from "src/interfaces/IVault.sol";
-import { BaseStrategy, BaseStrategyInitializable } from "src/BaseStrategy.sol";
+import { BaseStrategy, BaseStrategyFactory } from "src/BaseStrategy.sol";
 import { TestStrategy } from "src/strategies/test/TestStrategy.sol";
 
 import { Fixture } from "test/shared/Fixture.sol";

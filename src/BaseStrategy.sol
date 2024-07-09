@@ -948,7 +948,7 @@ abstract contract BaseStrategy is ReentrancyGuard {
     }
 }
 
-abstract contract BaseStrategyInitializable is BaseStrategy {
+abstract contract BaseStrategyFactory is BaseStrategy {
     bool public isOriginal = true;
 
     event Cloned(address indexed clone);

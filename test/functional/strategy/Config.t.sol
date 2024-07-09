@@ -5,7 +5,7 @@ import { console2 } from "forge-std/src/console2.sol";
 
 import { IRegistry } from "src/interfaces/IRegistry.sol";
 import { IVault } from "src/interfaces/IVault.sol";
-import { BaseStrategy, BaseStrategyInitializable } from "src/BaseStrategy.sol";
+import { BaseStrategy, BaseStrategyFactory } from "src/BaseStrategy.sol";
 
 import { Fixture } from "test/shared/Fixture.sol";
 
@@ -37,7 +37,7 @@ contract ConfigTest is Fixture {
 
     function test_strategy_no_reinit() external {
         vm.expectRevert("Strategy already initialized");
-        BaseStrategyInitializable(strategy).initialize(vault, strategist, strategist, strategist);
+        BaseStrategyFactory(strategy).initialize(vault, strategist, strategist, strategist);
     }
 
     function test_strategy_setEmergencyExit() external {
